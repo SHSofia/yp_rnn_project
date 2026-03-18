@@ -6,7 +6,6 @@ import os
 import shutil
 
 def download_and_save_raw_data():
-
     print("Загрузка датасета sentiment140")
     
     url = "http://cs.stanford.edu/people/alecmgo/trainingandtestdata.zip"
@@ -20,14 +19,22 @@ def download_and_save_raw_data():
     
     extracted_files = os.listdir("data/temp/")
     csv_files = [f for f in extracted_files if f.endswith('.csv')]
+    print(f"Найдено CSV файлов: {csv_files}")
     
-    csv_path = os.path.join("data/temp", csv_files[0])
+    # Объединяем все CSV файлы
+    all_dfs = []
+    for csv_file in csv_files:
+        csv_path = os.path.join("data/temp", csv_file)
+        df = pd.read_csv(csv_path, 
+                         encoding='latin-1', 
+                         header=None,
+                         names=['target', 'ids', 'date', 'flag', 'user', 'text'],
+                         usecols=['text'])
+        all_dfs.append(df)
+        print(f"Файл {csv_file}: {len(df)} записей")
     
-    df = pd.read_csv(csv_path, 
-                     encoding='latin-1', 
-                     header=None,
-                     names=['target', 'ids', 'date', 'flag', 'user', 'text'],
-                     usecols=['text'])
+    # Объединяем все данные
+    df = pd.concat(all_dfs, ignore_index=True)
     
     output_path = "data/raw_dataset.csv"
     df.to_csv(output_path, index=False)
@@ -36,6 +43,7 @@ def download_and_save_raw_data():
     
     shutil.rmtree("data/temp")
     return df
+
 
 def clean_text(text):
 
