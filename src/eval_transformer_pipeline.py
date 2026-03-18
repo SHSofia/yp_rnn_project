@@ -1,83 +1,94 @@
 import torch
 import numpy as np
-from rouge_score import rouge_scorer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm import tqdm
+from rouge_score import rouge_scorer
 
-def evaluate_lstm_model(model, dataloader, idx2word, device='cuda' if torch.cuda.is_available() else 'cpu', 
-                        num_examples=3):
-    model.eval()
-    model.to(device)
+class TransformerEvaluator:
+    def __init__(self, model_name="distilgpt2", device=None):
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        print(f"Загрузка {model_name} на {device}...")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
+        
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        self.device = device
+        print("Готово!")
     
-    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2'], use_stemmer=True)
-    all_rouge1 = []
-    all_rouge2 = []
-    examples = []
+    def generate_completion(self, text, max_new_tokens=10):
+        inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
+        
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                pad_token_id=self.tokenizer.pad_token_id,
+                do_sample=True,
+                top_k=50,
+                temperature=0.7
+            )
+        
+        generated = outputs[0][inputs['input_ids'].shape[1]:]
+        return self.tokenizer.decode(generated, skip_special_tokens=True)
     
-    with torch.no_grad():
-        for batch_idx, batch in enumerate(tqdm(dataloader, desc="Оценка")):
-            if batch[0] is None:
+    def evaluate_on_dataset(self, texts, split_ratio=0.75, max_new_tokens=10, num_examples=5):
+        scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2'], use_stemmer=True)
+        all_rouge1 = []
+        all_rouge2 = []
+        examples = []
+        
+        for text in tqdm(texts, desc="Оценка"):
+            words = text.split()
+            if len(words) < 4:
                 continue
             
-            X, Y = batch
-            X, Y = X.to(device), Y.to(device)
+            split = int(len(words) * split_ratio)
+            input_text = ' '.join(words[:split])
+            target_text = ' '.join(words[split:])
             
-            for i in range(min(len(X), 5)):  
-                x = X[i]
-                y = Y[i]
+            if len(target_text.split()) == 0:
+                continue
+            
+            try:
+                generated = self.generate_completion(input_text, max_new_tokens=len(words[split:]))
                 
-                # убирираем паддинг
-                mask = y != 0
-                y = y[mask]
-                if len(y) < 2:
-                    continue
-                
-                # Берем первые 3/4 как вход
-                split = int(len(y) * 0.75)
-                input_tokens = y[:split]
-                target_tokens = y[split:]
-                
-                if len(target_tokens) == 0:
-                    continue
-                
-                
-                gen_indices = model.generate_sequence(
-                    input_tokens.cpu().tolist(),
-                    max_length=len(target_tokens)
-                )
-                
-                
-                gen_tokens = gen_indices[len(input_tokens):]
-                
-               
-                target_words = [idx2word.get(int(idx), '?') for idx in target_tokens.cpu()]
-                gen_words = [idx2word.get(int(idx), '?') for idx in gen_tokens if idx != 0]
-                
-                target_text = ' '.join(target_words)
-                gen_text = ' '.join(gen_words)
-                
-                if len(gen_words) == 0:
-                    continue
-                
-                # rouge
-                scores = scorer.score(target_text, gen_text)
+                scores = scorer.score(target_text, generated)
                 all_rouge1.append(scores['rouge1'].fmeasure)
                 all_rouge2.append(scores['rouge2'].fmeasure)
                 
-               
                 if len(examples) < num_examples:
-                    input_words = [idx2word.get(int(idx), '?') for idx in input_tokens.cpu()]
                     examples.append({
-                        'input': ' '.join(input_words),
-                        'generated': gen_text,
+                        'input': input_text[:50] + '...' if len(input_text) > 50 else input_text,
+                        'generated': generated,
                         'target': target_text,
                         'rouge1': scores['rouge1'].fmeasure,
                         'rouge2': scores['rouge2'].fmeasure
                     })
+            except:
+                continue
+        
+        metrics = {
+            'rouge1': np.mean(all_rouge1) if all_rouge1 else 0.0,
+            'rouge2': np.mean(all_rouge2) if all_rouge2 else 0.0
+        }
+        
+        return metrics, examples
+
+def compare_with_lstm(transformer_metrics, transformer_examples, lstm_metrics, lstm_examples):
+    print("\n" + "="*50)
+    print("СРАВНЕНИЕ МОДЕЛЕЙ")
+    print("="*50)
+    print(f"{'Модель':<15} {'ROUGE-1':<10} {'ROUGE-2':<10}")
+    print("-"*35)
+    print(f"{'LSTM':<15} {lstm_metrics['rouge1']:.4f}    {lstm_metrics['rouge2']:.4f}")
+    print(f"{'DistilGPT2':<15} {transformer_metrics['rouge1']:.4f}    {transformer_metrics['rouge2']:.4f}")
     
-    # Усредняем
-    metrics = {
-        'rouge1': np.mean(all_rouge1) if all_rouge1 else 0.0,
-        'rouge2': np.mean(all_rouge2) if all_rouge2 else 0.0
-    }
-    
-    return metrics, examples
+    print("\nПРИМЕРЫ ТРАНСФОРМЕРА:")
+    for i, ex in enumerate(transformer_examples, 1):
+        print(f"\n{i}. Вход: {ex['input']}")
+        print(f"   Ген: {ex['generated']}")
+        print(f"   Цель: {ex['target']}")
