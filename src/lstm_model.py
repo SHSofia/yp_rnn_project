@@ -52,6 +52,9 @@ class LSTMAutocomplete(nn.Module):
         if start_tokens.dim() == 1:
             start_tokens = start_tokens.unsqueeze(0)
         
+        device = next(self.parameters()).device
+        start_tokens = start_tokens.to(device)
+
         batch_size = start_tokens.size(0)
         current_tokens = start_tokens
         hidden = None
