@@ -87,7 +87,7 @@ def train_model(train_loader, val_loader, vocab_size, idx2word,
         print(f"Val ROUGE-1: {val_metrics['rouge1']:.4f}")
         print(f"Val ROUGE-2: {val_metrics['rouge2']:.4f}")
         
-        # Вместо print_examples просто выведем примеры вручную
+       
         if examples:
             print("\nПримеры:")
             for i, ex in enumerate(examples, 1):
