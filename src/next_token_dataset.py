@@ -6,32 +6,25 @@ from sklearn.model_selection import train_test_split
 class NextTokenDataset(Dataset):
     
     def __init__(self, tokenized_texts, max_length=60):
-
         self.tokenized_texts = tokenized_texts
         self.max_length = max_length
         
-
         self._build_vocabulary()
         
-        # Преобразуем все тексты в индексы
         self.indexed_texts = []
         for text in tokenized_texts:
             if len(text) > max_length:
                 text = text[:max_length]
-
             indexed = [self.word2idx[word] for word in text]
             self.indexed_texts.append(indexed)
     
     def _build_vocabulary(self):
-        # Собираем все уникальные слова
         all_words = set()
         for text in self.tokenized_texts:
             all_words.update(text)
         
-        # Сортируем 
         all_words = sorted(list(all_words))
         
-        # Создаем словари 
         self.word2idx = {}
         self.idx2word = {}
         
@@ -57,18 +50,14 @@ class NextTokenDataset(Dataset):
         return torch.tensor(X, dtype=torch.long), torch.tensor(Y, dtype=torch.long)
 
 def collate_fn(batch):
-
     batch = [item for item in batch if item is not None]
     
     if len(batch) == 0:
         return None, None
 
     X_batch, Y_batch = zip(*batch)
-    
-
     max_len = max([len(x) for x in X_batch])
     
-    # Паддинг
     X_padded = []
     Y_padded = []
     
@@ -91,14 +80,17 @@ def create_dataloaders(data_path="data/dataset_processed.csv",
                       batch_size=256,
                       max_length=50,
                       test_size=0.2,
-                      val_size=0.1):
+                      val_size=0.1,
+                      save_splits=True):  # Новый параметр для сохранения
 
     df = pd.read_csv(data_path)
     
     tokenized_texts = df['tokenized_text'].apply(lambda x: x.split()).tolist()
+    cleaned_texts = df['cleaned_text'].tolist()  # Оригинальные очищенные тексты
 
     tokenized_texts = [text for text in tokenized_texts if len(text) >= 2]
-
+    
+    # Разбиваем на train/val/test
     train_texts, test_texts = train_test_split(
         tokenized_texts, 
         test_size=test_size, 
@@ -113,7 +105,34 @@ def create_dataloaders(data_path="data/dataset_processed.csv",
     
     print(f"train: {len(train_texts)}")
     print(f"val: {len(val_texts)}")
-    print(f"tet: {len(test_texts)}")
+    print(f"test: {len(test_texts)}")
+    
+ 
+    if save_splits:
+        # Функция для преобразования списка токенов обратно в строку
+        def tokens_to_string(tokens_list):
+            return [' '.join(tokens) for tokens in tokens_list]
+        
+        # Создаем DataFrame'ы и сохраняем
+        train_df = pd.DataFrame({
+            'text': tokens_to_string(train_texts)
+        })
+        train_df.to_csv('data/train.csv', index=False)
+        
+        val_df = pd.DataFrame({
+            'text': tokens_to_string(val_texts)
+        })
+        val_df.to_csv('data/val.csv', index=False)
+        
+        test_df = pd.DataFrame({
+            'text': tokens_to_string(test_texts)
+        })
+        test_df.to_csv('data/test.csv', index=False)
+        
+
+        print(f"data/train.csv: {len(train_df)} строк")
+        print(f"data/val.csv: {len(val_df)} строк")
+        print(f"data/test.csv: {len(test_df)} строк")
 
     # Создаем датасеты
     train_dataset = NextTokenDataset(train_texts, max_length)
