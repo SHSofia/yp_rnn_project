@@ -5,9 +5,8 @@ from tqdm import tqdm
 
 def evaluate_lstm_model(model, dataloader, idx2word, device='cuda' if torch.cuda.is_available() else 'cpu', 
                         num_examples=3):
-    """
-    Упрощенная оценка модели.
-    """
+
+
     model.eval()
     model.to(device)
     
@@ -24,7 +23,7 @@ def evaluate_lstm_model(model, dataloader, idx2word, device='cuda' if torch.cuda
             X, Y = batch
             X, Y = X.to(device), Y.to(device)
             
-            for i in range(min(len(X), 5)):  # Берем не больше 5 примеров из батча для скорости
+            for i in range(min(len(X), 5)):  
                 x = X[i]
                 y = Y[i]
                 
@@ -34,7 +33,7 @@ def evaluate_lstm_model(model, dataloader, idx2word, device='cuda' if torch.cuda
                 if len(y) < 2:
                     continue
                 
-                # Берем первые 3/4 как вход
+               
                 split = int(len(y) * 0.75)
                 input_tokens = y[:split]
                 target_tokens = y[split:]
@@ -97,5 +96,5 @@ def print_examples(examples):
         print(f"Target: {ex['target']}")
         print(f"ROUGE-1: {ex['rouge1']:.3f}")
         print(f"ROUGE-2: {ex['rouge2']:.3f}")
-        print("-"*40)
+
 
