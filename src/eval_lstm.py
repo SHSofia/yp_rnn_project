@@ -1,9 +1,3 @@
-# src/eval_lstm.py
-"""
-Модуль для оценки качества LSTM модели с помощью метрики ROUGE.
-Упрощенная версия.
-"""
-
 import torch
 import numpy as np
 from rouge_score import rouge_scorer
@@ -92,16 +86,15 @@ def evaluate_lstm_model(model, dataloader, idx2word, device='cuda' if torch.cuda
     return metrics, examples
 
 def print_examples(examples):
-    """Простой вывод примеров."""
     print("\\n" + "="*60)
-    print("ПРИМЕРЫ ПРЕДСКАЗАНИЙ")
+    print("Примеры предсказаний")
     print("="*60)
     
     for i, ex in enumerate(examples, 1):
         print(f"\\nПример {i}:")
         print(f"Вход: {ex['input'][:50]}...")
         print(f"Сгенерировано: {ex['generated']}")
-        print(f"Цель: {ex['target']}")
+        print(f"Target: {ex['target']}")
         print(f"ROUGE-1: {ex['rouge1']:.3f}")
         print(f"ROUGE-2: {ex['rouge2']:.3f}")
         print("-"*40)

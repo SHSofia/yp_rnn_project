@@ -10,7 +10,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from src.lstm_model import LSTMAutocomplete
-from src.eval_lstm import evaluate_lstm_model  # убрали import print_examples
+from src.eval_lstm import evaluate_lstm_model  
 
 def train_epoch(model, dataloader, optimizer, criterion, device):
     model.train()

@@ -80,14 +80,14 @@ class TransformerEvaluator:
 
 def compare_with_lstm(transformer_metrics, transformer_examples, lstm_metrics, lstm_examples):
     print("\n" + "="*50)
-    print("СРАВНЕНИЕ МОДЕЛЕЙ")
+    print("Сравнение моделей")
     print("="*50)
     print(f"{'Модель':<15} {'ROUGE-1':<10} {'ROUGE-2':<10}")
     print("-"*35)
     print(f"{'LSTM':<15} {lstm_metrics['rouge1']:.4f}    {lstm_metrics['rouge2']:.4f}")
     print(f"{'DistilGPT2':<15} {transformer_metrics['rouge1']:.4f}    {transformer_metrics['rouge2']:.4f}")
     
-    print("\nПРИМЕРЫ ТРАНСФОРМЕРА:")
+    print("\nТрансформер. Пример:")
     for i, ex in enumerate(transformer_examples, 1):
         print(f"\n{i}. Вход: {ex['input']}")
         print(f"   Ген: {ex['generated']}")
